@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upideploy
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: java-app
+      env: UAT
+  template:
+    metadata:
+      labels:
+        app: java-app
+        env: UAT
+    spec:
+      containers:
+        - name: upicontainer
+          image: ${IMAGENAME}:${TAG}
