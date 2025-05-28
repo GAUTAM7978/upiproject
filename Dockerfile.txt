@@ -1,0 +1,5 @@
+FROM openjdk:17
+WORKDIR /opt
+COPY ./upi-acq-vo-1.0.121.UAT.jar /opt/upi-acq-vo-1.0.121.UAT.jar
+EXPOSE 8080
+CMD [ "java", "-jar", "upi-acq-vo-1.0.121.UAT.jar" ]
