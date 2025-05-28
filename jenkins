@@ -1,0 +1,103 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGENAME = "docker15139/deployimage"
+        TAG = "5.0"
+        FILES_PATH = "/var/lib/jenkins/workspace/upi/"
+        deployment_path = "/var/lib/jenkins/workspace/upi/deployment.yml"
+        WORKSPACE_PATH = "/var/lib/jenkins/workspace/UPIImageDeploy/"
+        KUBECONFIG = "/var/lib/jenkins/.kube/config" // Path to copied kubeconfig
+    }
+
+    stages {
+        stage('Clean') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Copy') {
+            steps {
+                script {
+                    sh "cp -r ${env.FILES_PATH} ${env.WORKSPACE_PATH}"
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t ${env.IMAGENAME}:${env.TAG} -f ${env.WORKSPACE_PATH}/Dockerfile ${env.WORKSPACE}"
+                }
+            }
+        }
+        stage('Login to Docker Hub') {
+            steps {
+                sh '''
+                    ***********
+                '''
+            }
+        }
+        stage('Push Docker Image') {
+            steps {
+                sh 'docker push $IMAGENAME:$TAG'
+            }
+        }
+        stage('Copy_deployment file') {
+            steps {
+                script {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'remote-ssh-key', keyFileVariable: 'KEYFILE')]) {
+                        sh '''
+                            scp -o StrictHostKeyChecking=no -i "$KEYFILE" -r "$deployment_path" ubuntu@52.54.247.101:/home/ubuntu/
+                        '''
+                    }
+                }
+            }
+        }
+        stage('deploy in k8s') {
+            steps {
+                script {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'remote-ssh-key', keyFileVariable: 'KEYFILE')]) {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no -i $KEYFILE ubuntu@52.54.247.101"kubectl apply -f deployment.yml"
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Validate Manifest') {
+            steps {
+
+                script {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'remote-ssh-key', keyFileVariable: 'KEYFILE')]) {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no -i $KEYFILE ubuntu@52.54.247.101 "kubectl get pods"
+                        '''
+                    }
+                }
+            }
+             
+        }
+        stage('Copy and Delete Deployment File on Remote') {
+    steps {
+        script {
+            withCredentials([sshUserPrivateKey(credentialsId: 'remote-ssh-key', keyFileVariable: 'KEYFILE')]) {
+                sh '''
+                    ssh -o StrictHostKeyChecking=no -i "$KEYFILE" ubuntu@52.54.247.101 "rm -rf /home/ubuntu/deployment.yml"
+                    echo successfully removed deployment file in minikube cluster
+                '''
+            }
+        }
+    }
+}
+
+
+    }
+    post {
+        always {
+            echo "Pipeline completed."
+        }
+    }
+}
